@@ -38,6 +38,7 @@ android {
 }
 
 dependencies {
+    implementation("com.google.accompanist:accompanist-permissions:0.37.3")
     implementation("androidx.navigation:navigation-compose:2.9.6")
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)

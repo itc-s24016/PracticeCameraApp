@@ -20,6 +20,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,9 +33,36 @@ class MainActivity : ComponentActivity() {
         setContent {
             PracticeCameraAppTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Main(modifier = Modifier.padding(innerPadding))
+                    ConfirmPermission(modifier = Modifier.padding(innerPadding)) {
+                        Main(modifier = Modifier.padding(innerPadding))
+                    }
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalPermissionsApi::class)
+@Composable
+fun ConfirmPermission(
+    modifier: Modifier,
+    content: @Composable () -> Unit
+){
+    val cameraPermission = rememberPermissionState(android.Manifest.permission.CAMERA)
+
+    LaunchedEffect(Unit) {
+        if (!cameraPermission.status.isGranted){
+            cameraPermission.launchPermissionRequest()
+        }
+    }
+    if (cameraPermission.status.isGranted){
+        content()
+    } else {
+        Box(
+            modifier = modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ){
+            Text("カメラの使用を許可してください")
         }
     }
 }
