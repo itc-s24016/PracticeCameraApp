@@ -56,6 +56,15 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
 import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.CircularProgressIndicator
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -193,6 +202,7 @@ private fun rotateBitmapIfNeeded(src: Bitmap, rotationDegrees: Int): Bitmap {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecognizeView(
     modifier: Modifier,
@@ -200,6 +210,11 @@ fun RecognizeView(
     onBack: () -> Unit
 ){
     var editBitmap by remember { mutableStateOf(bitmap) }
+    val sheetState = rememberModalBottomSheetState()
+    var showSheet by remember { mutableStateOf(false) }
+    var textList by remember { mutableStateOf<List<String>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(false) }
+
     Box(modifier = modifier.fillMaxSize()){
         Image(
             bitmap = editBitmap.asImageBitmap(),
@@ -214,14 +229,49 @@ fun RecognizeView(
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ){
             Button(onClick = {
+                isLoading = true
                 recognizeText(bitmap){resultBitmap, result ->
                     editBitmap = resultBitmap
+                    textList = result
+                    showSheet = true
+                    isLoading = false
                 }
             }){
                 Icon(imageVector = Icons.Filled.TextFields, contentDescription = "文字読み取り")
             }
             Button(onClick = onBack){
                 Icon(imageVector = Icons.Filled.CameraAlt, contentDescription = "カメラに戻る")
+            }
+        }
+    }
+    if (showSheet) {
+        ModalBottomSheet(
+            onDismissRequest = {showSheet = false},
+            sheetState = sheetState
+        ){
+            Card(modifier = Modifier.align(Alignment.CenterHorizontally)
+            ){
+                Text(
+                    text = "*** 認識結果 ***",
+                    modifier = Modifier.padding(8.dp)
+                )
+            }
+            Text(
+                text = textList.joinToString("\n"),
+                modifier = Modifier.padding(8.dp)
+                    .verticalScroll(rememberScrollState())
+            )
+        }
+
+        if (isLoading) {
+            Box(
+                modifier = modifier
+                    .fillMaxSize()
+                    .clickable{/*なにもしない*/}
+                    .background(Color.Black.copy(alpha = 0.5f)),
+                contentAlignment = Alignment.Center,
+            ){
+                CircularProgressIndicator(color = Color.White)
             }
         }
     }
