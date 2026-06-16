@@ -25,6 +25,22 @@ import androidx.compose.ui.Alignment
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.view.LifecycleCameraController
+import androidx.camera.view.PreviewView
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Camera
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import androidx.camera.core.ImageProxy
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -92,16 +108,55 @@ fun CameraPreview(
     modifier: Modifier,
     onCapture: () -> Unit
 ){
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color.Green)
-    ){
-        Button(onClick = {
-            onCapture()
-        }){
-            Text("画像認識画面へ移動")
+    val context = LocalContext.current
+    val cameraController = remember {
+        LifecycleCameraController(context).apply {
+            setEnabledUseCases(LifecycleCameraController.IMAGE_CAPTURE)
+            cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+            imageCaptureMode = ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY
         }
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        cameraController.bindToLifecycle(lifecycleOwner)
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        AndroidView(
+            factory = {context ->
+                PreviewView(context).apply {
+                    implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                    controller = cameraController
+                }
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
+        Button(
+            onClick = {
+                onCapture()
+            },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(16.dp)
+        ) {
+            Icon(imageVector = Icons.Filled.Camera, contentDescription = "撮影")
+        }
+    }
+}
+
+private fun imageProxyToBitmap(image: ImageProxy): Bitmap {
+    val buf = image.planes.firstOrNull()?.buffer
+        ?: return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+    val bytes = ByteArray(buf.remaining()).also { buf.get(it) }
+    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+}
+
+private fun rotateBitmapIfNeeded(src: Bitmap, rotationDegrees: Int): Bitmap {
+    if (rotationDegrees == 0) return src
+    val m = Matrix().apply {postRotate(rotationDegrees.toFloat())}
+    return Bitmap.createBitmap(src, 0, 0, src.width, src.height, m, true).also {
+        if (it != src) src.recycle()
     }
 }
 
