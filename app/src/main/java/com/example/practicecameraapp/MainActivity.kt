@@ -65,6 +65,8 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.CircularProgressIndicator
+import com.google.mlkit.vision.barcode.BarcodeScanning
+import androidx.compose.material.icons.filled.QrCodeScanner
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -239,6 +241,20 @@ fun RecognizeView(
             }){
                 Icon(imageVector = Icons.Filled.TextFields, contentDescription = "文字読み取り")
             }
+            Button(onClick = {
+                isLoading = true
+                recognizeBarcode(bitmap){ resultBitmap, result ->
+                    editBitmap = resultBitmap
+                    textList = result
+                    showSheet = true
+                    isLoading = false
+                }
+            }){
+                Icon(imageVector = Icons.Filled.QrCodeScanner, contentDescription = "バーコード読み取り")
+            }
+            Button(onClick = {showSheet = true}){
+                Icon(imageVector = Icons.Filled.Refresh, contentDescription = "再表示")
+            }
             Button(onClick = onBack){
                 Icon(imageVector = Icons.Filled.CameraAlt, contentDescription = "カメラに戻る")
             }
@@ -303,6 +319,32 @@ fun recognizeText(
             }
         }
         onResult(resultBitmap, results)
+    }.addOnFailureListener { e ->
+        onResult(bitmap, listOf("読み取り失敗: ${e.message}"))
+    }
+}
+
+fun recognizeBarcode(bitmap: Bitmap, onResult: (Bitmap, List<String>) -> Unit){
+    val scanner = BarcodeScanning.getClient()
+    val image = InputImage.fromBitmap(bitmap, 0)
+
+    scanner.process(image).addOnSuccessListener {barcodes ->
+        val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
+        val canvas = android.graphics.Canvas(mutableBitmap)
+        val paint = android.graphics.Paint().apply {
+            color = android.graphics.Color.RED
+            style = android.graphics.Paint.Style.STROKE
+            strokeWidth = 4f
+        }
+
+        val results = mutableListOf<String>()
+        barcodes.forEach{ barcode ->
+            barcode.boundingBox?.let{canvas.drawRect(it, paint)}
+            barcode.rawValue?.let {
+                results.add(it)
+            }
+        }
+        onResult(mutableBitmap, results)
     }.addOnFailureListener { e ->
         onResult(bitmap, listOf("読み取り失敗: ${e.message}"))
     }
