@@ -52,6 +52,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
+import androidx.compose.material.icons.filled.TextFields
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -209,10 +213,48 @@ fun RecognizeView(
                 .padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ){
+            Button(onClick = {
+                recognizeText(bitmap){resultBitmap, result ->
+                    editBitmap = resultBitmap
+                }
+            }){
+                Icon(imageVector = Icons.Filled.TextFields, contentDescription = "文字読み取り")
+            }
             Button(onClick = onBack){
                 Icon(imageVector = Icons.Filled.CameraAlt, contentDescription = "カメラに戻る")
             }
         }
+    }
+}
+
+fun recognizeText(
+    bitmap: Bitmap,
+    onResult: (Bitmap, List<String>) -> Unit
+){
+    val recognizer = TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
+    val image = InputImage.fromBitmap(bitmap, 0)
+
+    recognizer.process(image).addOnSuccessListener {result ->
+        val resultBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
+        val canvas = android.graphics.Canvas(resultBitmap)
+        val paint = android.graphics.Paint().apply {
+            color = android.graphics.Color.BLUE
+            style = android.graphics.Paint.Style.STROKE
+            strokeWidth = 4f
+        }
+
+        val results = mutableListOf<String>()
+
+        result.textBlocks.forEach { block ->
+            block.boundingBox?.let {canvas.drawRect(it, paint)}
+            block.lines.forEach {
+                it.boundingBox?.let { box -> canvas.drawRect(box, paint) }
+                results.add(it.text)
+            }
+        }
+        onResult(resultBitmap, results)
+    }.addOnFailureListener { e ->
+        onResult(bitmap, listOf("読み取り失敗: ${e.message}"))
     }
 }
 
